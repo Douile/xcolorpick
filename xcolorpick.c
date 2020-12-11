@@ -31,7 +31,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
 #define FORMAT_HEX "#%02X%02X%02X\n"
 #define FORMAT_RGB "rgb(%d, %d, %d)\n"
-const char * FORMAT_RAW = "%d\n";
+const char * FORMAT_RAW = "%lld\n";
 
 const char *program_name;             /* Name of this program */
 #define EXIT_FAILURE 2
