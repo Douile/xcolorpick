@@ -17,6 +17,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -26,6 +28,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/cursorfont.h>
+
+#define FORMAT_HEX "#%02X%02X%02X\n"
+#define FORMAT_RGB "rgb(%d, %d, %d)\n"
+const char * FORMAT_RAW = "%d\n";
 
 const char *program_name;             /* Name of this program */
 #define EXIT_FAILURE 2
@@ -110,9 +116,81 @@ void select_pixel(Display *d, int s, Point *p) {
   XUngrabPointer(d, CurrentTime);      /* Done with pointer */
 }
 
+
+void
+print_help (void)
+{
+    static const char *help_message =
+"where options include:\n"
+"    -h, --help               print out a summary of command line options\n"
+"    --rgb                    output a CSS rgb string\n"
+"    -q, --qhex               output hex without the leading #\n"
+"    -r, --raw                output raw number (decimal)\n"
+"    -f, --format format      use your own format string\n"
+"    -v, --version            print program version\n";
+
+
+    fflush (stdout);
+
+    fprintf (stderr,
+	     "usage:  %s [-options ...]\n\n",
+	     program_name);
+    fprintf (stderr, "%s\n", help_message);
+}
+
+
+void help (void) {
+	print_help();
+	exit(0);
+}
+
+void usage (const char *errmsg)
+{
+    if (errmsg != NULL)
+	    fprintf (stderr, "%s: %s\n\n", program_name, errmsg);
+
+    print_help();
+    exit (1);
+}
+
+
 /* https://stackoverflow.com/a/17525571 */
 int main(int argc, char** argv)
 {
+    INIT_NAME;
+
+    char * format = FORMAT_HEX;
+
+    while (argv++, --argc>0 && **argv == '-') {
+      if (!strcmp(argv[0], "-")) continue;
+      if (!strcmp(argv[0], "-v") || !strcmp(argv[0], "--version")) {
+        puts(PACKAGE_STRING);
+        exit(0);
+      }
+      if (!strcmp(argv[0], "-h") || !strcmp(argv[0], "--help")) {
+        help();
+      }
+      if (!strcmp(argv[0], "--rgb")) {
+        format = FORMAT_RGB;
+        continue;
+      }
+      if (!strcmp(argv[0], "-q") || !strcmp(argv[0], "--qhex")) {
+        format = FORMAT_HEX+1;
+        continue;
+      }
+      if (!strcmp(argv[0], "-r") || !strcmp(argv[0], "--raw")) {
+        format = FORMAT_RAW;
+        continue;
+      }
+      if (!strcmp(argv[0], "-f") || !strcmp(argv[0], "--format")) {
+        if (++argv, --argc == 0) usage("format requires an argument");
+        format = argv[0];
+        continue;
+      }
+      fprintf (stderr, "%s: unrecognized argument %s\n\n", program_name, argv[0]);
+      usage(NULL);
+    }
+
     XColor c;
     dpy = XOpenDisplay((char *) NULL);
     int screen = XDefaultScreen(dpy);
@@ -127,8 +205,17 @@ int main(int argc, char** argv)
     XQueryColor(dpy, XDefaultColormap(dpy, XDefaultScreen(dpy)), &c);
 
     XCloseDisplay(dpy);
-    int r = c.red/256, g = c.green/256, b = c.blue/256;
-    printf("rgb(%d, %d, %d)\n", r, g, b);
-    printf("#%02X%02X%02X\n", r, g, b);
+
+    if (format == FORMAT_RAW) {
+      long long color = c.red;
+      color <<= 16;
+      color |= c.green;
+      color <<= 16;
+      color |= c.blue;
+      printf(format, color);
+    } else {
+      int r = c.red/256, g = c.green/256, b = c.blue/256;
+      printf(format, r, g, b);
+    }
     return 0;
 }
