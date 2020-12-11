@@ -48,4 +48,4 @@ lint:
 	$(LINT) $(ALL_LINT_FLAGS) $(xprop_SOURCES)
 endif LINT
 
-EXTRA_DIST =
+EXTRA_DIST = README.md
