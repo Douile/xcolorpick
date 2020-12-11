@@ -12,8 +12,12 @@ const char *program_name;             /* Name of this program */
 #define EXIT_FAILURE 2
 #define INIT_NAME program_name=argv[0]        /* use this in main to setup
                                                  program_name */
-
 Display *dpy;
+
+typedef struct {
+ int x;
+ int y;
+} Point;
 
 /*
  * Close_Display: Close display
@@ -45,25 +49,20 @@ void Fatal_Error(const char *msg, ...)
 	exit(EXIT_FAILURE);
 }
 
-typedef struct {
-  int x;
-  int y;
-} Point;
-
 /* https://gitlab.freedesktop.org/xorg/app/xprop/-/blob/master/dsimple.c */
-void select_pixel(Display *dpy, Point *p) {
+void select_pixel(Display *d, int s, Point *p) {
   int status;
   Cursor cursor;
   XEvent event;
-  Window root = XRootWindow(dpy, XDefaultScreen(dpy));
+  Window root = XRootWindow(d, s);
   int buttons = 0;
   bool done = false;
 
   /* Make the target cursor */
-  cursor = XCreateFontCursor(dpy, XC_crosshair);
+  cursor = XCreateFontCursor(d, XC_crosshair);
 
   /* Grab the pointer using target cursor, letting it room all over */
-  status = XGrabPointer(dpy, root, False,
+  status = XGrabPointer(d, root, False,
       ButtonPressMask|ButtonReleaseMask, GrabModeSync,
       GrabModeAsync, root, cursor, CurrentTime);
   if (status != GrabSuccess) Fatal_Error("Can't grab the mouse.");
@@ -71,8 +70,8 @@ void select_pixel(Display *dpy, Point *p) {
   /* Let the user select a window... */
   while ((!done) || (buttons != 0)) {
     /* allow one more event */
-    XAllowEvents(dpy, SyncPointer, CurrentTime);
-    XWindowEvent(dpy, root, ButtonPressMask|ButtonReleaseMask, &event);
+    XAllowEvents(d, SyncPointer, CurrentTime);
+    XWindowEvent(d, root, ButtonPressMask|ButtonReleaseMask, &event);
     switch (event.type) {
     case ButtonPress:
       if (!done) {
@@ -89,7 +88,7 @@ void select_pixel(Display *dpy, Point *p) {
     }
   }
 
-  XUngrabPointer(dpy, CurrentTime);      /* Done with pointer */
+  XUngrabPointer(d, CurrentTime);      /* Done with pointer */
 }
 
 /* https://stackoverflow.com/a/17525571 */
@@ -97,18 +96,20 @@ int main(int argc, char** argv)
 {
     XColor c;
     dpy = XOpenDisplay((char *) NULL);
+    int screen = XDefaultScreen(dpy);
 
     Point p;
-    select_pixel(dpy, &p);
+    select_pixel(dpy, screen, &p);
 
     XImage *image;
-    image = XGetImage (dpy, XRootWindow(dpy, XDefaultScreen(dpy)), p.x, p.y, 1, 1, AllPlanes, XYPixmap);
+    image = XGetImage (dpy, XRootWindow(dpy, screen), p.x, p.y, 1, 1, AllPlanes, XYPixmap);
     c.pixel = XGetPixel(image, 0, 0);
     XFree(image);
     XQueryColor(dpy, XDefaultColormap(dpy, XDefaultScreen(dpy)), &c);
-    printf("%d %d %d\n", c.red/256, c.green/256, c.blue/256);
 
     XCloseDisplay(dpy);
-
+    int r = c.red/256, g = c.green/256, b = c.blue/256;
+    printf("rgb(%d, %d, %d)\n", r, g, b);
+    printf("#%02X%02X%02X\n", r, g, b);
     return 0;
 }
